@@ -47,7 +47,10 @@ def add_paper(
 
     # Fetch metadata
     if parsed.type == "arxiv":
-        meta = arxiv_client.fetch_by_id(parsed.value)
+        try:
+            meta = arxiv_client.fetch_by_id(parsed.value)
+        except Exception as e:
+            return f"arXiv API error: {e}"
         if meta is None:
             return f"Paper not found on arXiv: `{parsed.value}`"
     elif parsed.type == "doi":
