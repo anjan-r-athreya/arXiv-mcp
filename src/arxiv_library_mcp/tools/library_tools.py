@@ -72,3 +72,86 @@ def get_paper(paper_id: str) -> str:
         sections.append(f"**PDF**: `{paper.local_pdf_path}`")
 
     return "\n\n".join(sections)
+
+
+@mcp.tool()
+def tag_paper(
+    paper_id: str,
+    add_tags: list[str] | None = None,
+    remove_tags: list[str] | None = None,
+) -> str:
+    """Add or remove tags on a paper.
+
+    Args:
+        paper_id: Library paper ID or arXiv ID
+        add_tags: Tags to add
+        remove_tags: Tags to remove
+    """
+    db = get_sqlite()
+    paper = db.get_paper(paper_id)
+    if paper is None:
+        return f"Paper not found: `{paper_id}`"
+
+    if add_tags:
+        db.add_tags(paper.id, add_tags)
+    if remove_tags:
+        db.remove_tags(paper.id, remove_tags)
+
+    updated_tags = db._get_tags(paper.id)
+    tag_list = ", ".join(f"`{t.name}`" for t in updated_tags) or "none"
+    return f"**{paper.title}**\nTags: {tag_list}"
+
+
+@mcp.tool()
+def add_note(paper_id: str, content: str) -> str:
+    """Add a free-text note to a paper. Notes are indexed for semantic search.
+
+    Args:
+        paper_id: Library paper ID or arXiv ID
+        content: Note text (Markdown supported)
+    """
+    db = get_sqlite()
+    chroma = get_chroma()
+    paper = db.get_paper(paper_id)
+    if paper is None:
+        return f"Paper not found: `{paper_id}`"
+
+    note = db.add_note(paper.id, content)
+
+    # Index for semantic search
+    chroma.index_note(note.id, paper.id, content)
+
+    total = len(db.get_notes(paper.id))
+    return f"Note #{note.id} added to **{paper.title}** ({total} note{'s' if total != 1 else ''} total)"
+
+
+@mcp.tool()
+def remove_paper(paper_id: str, delete_pdf: bool = True) -> str:
+    """Remove a paper from your library. Deletes metadata, notes, annotations, and embeddings.
+
+    Args:
+        paper_id: Library paper ID or arXiv ID
+        delete_pdf: Also delete the local PDF file
+    """
+    import os
+
+    db = get_sqlite()
+    chroma = get_chroma()
+    paper = db.get_paper(paper_id)
+    if paper is None:
+        return f"Paper not found: `{paper_id}`"
+
+    title = paper.title
+    pdf_path = paper.local_pdf_path
+
+    # Remove from ChromaDB
+    chroma.delete_paper(paper.id)
+
+    # Remove from SQLite (cascades to tags, notes, annotations)
+    db.delete_paper(paper.id)
+
+    # Optionally delete the PDF file
+    if delete_pdf and pdf_path and os.path.exists(pdf_path):
+        os.remove(pdf_path)
+
+    return f"Removed **{title}** from library."
