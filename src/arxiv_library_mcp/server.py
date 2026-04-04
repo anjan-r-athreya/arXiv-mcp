@@ -49,3 +49,4 @@ import arxiv_library_mcp.tools.import_tools  # noqa: F401, E402
 import arxiv_library_mcp.tools.library_tools  # noqa: F401, E402
 import arxiv_library_mcp.tools.search_tools  # noqa: F401, E402
 import arxiv_library_mcp.tools.export_tools  # noqa: F401, E402
+import arxiv_library_mcp.tools.annotation_tools  # noqa: F401, E402
