@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from arxiv_library_mcp.config import config
 from arxiv_library_mcp.core.doi_resolver import DOIResolver
-from arxiv_library_mcp.server import mcp, get_sqlite
+from arxiv_library_mcp.core.duplicate_detector import detect_duplicates
+from arxiv_library_mcp.server import mcp, get_sqlite, get_chroma
 
 
 def _get_resolver() -> DOIResolver:
@@ -107,3 +108,64 @@ def _update_tracking(db, paper_id: str, status: str, doi: str | None) -> None:
             (paper_id, status, doi),
         )
     db._conn.commit()
+
+
+@mcp.tool()
+def find_duplicates(
+    threshold: float = 0.85,
+    paper_id: str = "",
+) -> str:
+    """Scan your library for potential duplicate or variant papers.
+
+    Uses title similarity, author overlap, arXiv version detection, and
+    optionally embedding cosine similarity. Reports pairs with confidence scores.
+
+    Args:
+        threshold: Minimum similarity score to flag (0.0-1.0, default 0.85)
+        paper_id: Check a specific paper against all others, or empty for full scan
+    """
+    db = get_sqlite()
+    chroma = get_chroma()
+
+    if paper_id:
+        target = db.get_paper(paper_id)
+        if target is None:
+            return f"Paper not found: `{paper_id}`"
+        all_papers, _ = db.list_papers(limit=10000)
+        papers = [target] + [p for p in all_papers if p.id != target.id]
+    else:
+        papers, _ = db.list_papers(limit=10000)
+
+    if len(papers) < 2:
+        return "Need at least 2 papers in the library to check for duplicates."
+
+    # Try to get embeddings for cosine similarity boost
+    embeddings: dict[str, list[float]] = {}
+    for p in papers:
+        emb = chroma.get_paper_embedding(p.id)
+        if emb:
+            embeddings[p.id] = emb
+
+    pairs = detect_duplicates(papers, threshold=threshold, embeddings=embeddings or None)
+
+    if not pairs:
+        return f"No potential duplicates found (threshold: {threshold:.0%})."
+
+    # Format output
+    lines = [f"**Found {len(pairs)} potential duplicate pair{'s' if len(pairs) != 1 else ''}:**\n"]
+
+    # Build ID-to-paper lookup
+    paper_map = {p.id: p for p in papers}
+
+    for pair in pairs:
+        a = paper_map.get(pair.paper_a_id)
+        b = paper_map.get(pair.paper_b_id)
+        if not a or not b:
+            continue
+        conf = f"{pair.confidence:.0%}"
+        lines.append(f"- **{conf}** confidence: {pair.reason}")
+        lines.append(f"  - `{a.id[:8]}` {a.title}")
+        lines.append(f"  - `{b.id[:8]}` {b.title}")
+        lines.append("")
+
+    return "\n".join(lines)
