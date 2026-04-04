@@ -129,3 +129,60 @@ def _get_filtered_paper_ids(
         ids = ids & before_ids if after else before_ids
 
     return ids
+
+
+@mcp.tool()
+def find_similar(paper_id: str, limit: int = 5) -> str:
+    """Find papers in your library that are most similar to a given paper.
+
+    Uses embedding cosine similarity on titles and abstracts.
+
+    Args:
+        paper_id: Library paper ID or arXiv ID
+        limit: Max results to return (default 5)
+    """
+    db = get_sqlite()
+    chroma = get_chroma()
+    limit = min(limit, 50)
+
+    paper = db.get_paper(paper_id)
+    if paper is None:
+        return f"Paper not found: `{paper_id}`"
+
+    # Get this paper's embedding and use it to query
+    embedding = chroma.get_paper_embedding(paper.id)
+    if embedding is None:
+        return f"No embedding found for **{paper.title}**. The paper may not be indexed yet."
+
+    # Query ChromaDB with the embedding directly (request extra to exclude self)
+    count = chroma.paper_count()
+    if count <= 1:
+        return "Need at least 2 papers in the library to find similar papers."
+
+    n = min(limit + 1, count)
+    results_raw = chroma._papers.query(
+        query_embeddings=[embedding],
+        n_results=n,
+    )
+
+    results: list[SearchResult] = []
+    if results_raw and results_raw["ids"] and results_raw["ids"][0]:
+        ids = results_raw["ids"][0]
+        distances = results_raw.get("distances", [[]])[0]
+        for i, rid in enumerate(ids):
+            if rid == paper.id:
+                continue  # Skip self
+            similar_paper = db.get_paper(rid)
+            if similar_paper is None:
+                continue
+            distance = distances[i] if i < len(distances) else 0.0
+            score = 1.0 - (distance / 2.0)
+            results.append(SearchResult(paper=similar_paper, score=score, source="similar"))
+            if len(results) >= limit:
+                break
+
+    if not results:
+        return "No similar papers found."
+
+    header = f"Papers similar to **{paper.title}**:\n\n"
+    return header + format_search_results(results)
