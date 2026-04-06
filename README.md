@@ -7,7 +7,7 @@ A persistent, semantically searchable research library that lives locally. Impor
 **Built for**: Researchers, grad students, and engineers who read arXiv papers and use Claude Code, Claude Desktop, or Cursor.
 
 <p align="center">
-  <img src="arxiv-mcp-gif.gif" alt="arxiv-library-mcp demo" width="720">
+  <img src="assets/arxiv-mcp-gif.gif" alt="arxiv-library-mcp demo" width="720">
 </p>
 
 ## Install
