@@ -1,118 +1,126 @@
 # arxiv-library-mcp
 
-A personal research library MCP server. Import arXiv papers, search semantically, tag, annotate, track preprints, detect duplicates, cluster by topic, and export — all through Claude.
+**MCP server for searching and managing arXiv papers with Claude and Cursor.**
 
-## Quick Start
+A persistent, semantically searchable research library that lives locally. Import papers by arXiv ID, search with natural language, tag and annotate, track preprints to publication, detect duplicates, cluster by topic, and export BibTeX — all through conversational AI.
+
+**Built for**: Researchers, grad students, and engineers who read arXiv papers and use Claude Code, Claude Desktop, or Cursor.
+
+<p align="center">
+  <img src="arxiv-mcp-gif.gif" alt="arxiv-library-mcp demo" width="720">
+</p>
+
+## Install
 
 ```bash
-# Install uv if needed
+# Requires Python 3.11+ and uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 
-# Clone and install
-cd arxiv-library-mcp
+git clone https://github.com/anjan-r-athreya/arXiv-mcp.git
+cd arXiv-mcp
 uv sync
-
-# Register with Claude Code
-claude mcp add arxiv-library -- uv run --directory $(pwd) python -m arxiv_library_mcp
-
-# Or register with Claude Desktop (macOS)
-# Add to ~/Library/Application Support/Claude/claude_desktop_config.json:
-# {
-#   "mcpServers": {
-#     "arxiv-library": {
-#       "command": "uv",
-#       "args": ["run", "--directory", "/absolute/path/to/arxiv-library-mcp",
-#                "python", "-m", "arxiv_library_mcp"]
-#     }
-#   }
-# }
 ```
+
+### Register with Claude Code
+```bash
+claude mcp add arxiv-library -- uv run --directory $(pwd) python -m arxiv_library_mcp
+```
+
+### Register with Claude Desktop
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
+```json
+{
+  "mcpServers": {
+    "arxiv-library": {
+      "command": "uv",
+      "args": ["run", "--directory", "/absolute/path/to/arXiv-mcp",
+               "python", "-m", "arxiv_library_mcp"]
+    }
+  }
+}
+```
+
+### Register with Cursor
+Add to Cursor's MCP settings with the same command and args as above.
+
+## What You Can Do
+
+Once registered, just talk to Claude:
+
+- *"Add paper 1706.03762 and tag it transformers"*
+- *"Search my library for attention mechanisms"*
+- *"Find papers similar to the BERT paper"*
+- *"Export my NLP papers as BibTeX"*
+- *"Cluster my library by topic"*
+- *"Check if any preprints have been published"*
 
 ## Tools (15)
 
 ### Import
-| Tool | Description |
+| Tool | What it does |
 |---|---|
-| `add_paper` | Add paper by arXiv ID, DOI, or URL. Downloads PDF and indexes full text. |
-| `import_pdf` | Import a local PDF. Auto-identifies arXiv papers from PDF content. |
+| `add_paper` | Add by arXiv ID, DOI, or URL. Downloads PDF, extracts text, indexes for search. |
+| `import_pdf` | Import a local PDF. Auto-identifies arXiv papers from content. |
 | `bulk_import` | Batch import from a list of identifiers. |
 
 ### Search
-| Tool | Description |
+| Tool | What it does |
 |---|---|
 | `search_library` | Semantic search across titles, abstracts, full text, and notes. Filter by tags, categories, date. |
 | `find_similar` | Find papers similar to a given paper via embedding cosine similarity. |
 
-### Library Management
-| Tool | Description |
+### Library
+| Tool | What it does |
 |---|---|
-| `list_papers` | Browse library with tag/category filters, sorting, pagination. |
+| `list_papers` | Browse with tag/category filters, sorting, pagination. |
 | `get_paper` | Full details: metadata, tags, notes, annotations, PDF path. |
 | `tag_paper` | Add or remove tags. |
 | `add_note` | Add a searchable note (indexed for semantic search). |
-| `remove_paper` | Remove paper from all stores and optionally delete PDF. |
+| `remove_paper` | Remove from all stores, optionally delete PDF. |
 
 ### Annotations
-| Tool | Description |
+| Tool | What it does |
 |---|---|
-| `extract_annotations` | Extract highlights, comments, underlines from a PDF via PyMuPDF. |
+| `extract_annotations` | Extract highlights, comments, underlines from PDF. |
 
-### Tracking & Duplicates
-| Tool | Description |
+### Tracking
+| Tool | What it does |
 |---|---|
-| `check_published` | Check if arXiv preprints have published DOIs (via Semantic Scholar + Crossref). |
-| `find_duplicates` | Detect duplicate/variant papers using title, author, arXiv version, and embedding similarity. |
+| `check_published` | Resolve arXiv preprints to published DOIs via Semantic Scholar + Crossref. |
+| `find_duplicates` | Detect duplicates using title, author, arXiv version, and embedding similarity. |
 
 ### Clustering
-| Tool | Description |
+| Tool | What it does |
 |---|---|
-| `cluster_library` | Group papers by topic using KMeans on embeddings. Auto-generates cluster labels via TF-IDF. |
+| `cluster_library` | Group papers by topic (KMeans on embeddings). Auto-labels clusters via TF-IDF. |
 
 ### Export
-| Tool | Description |
+| Tool | What it does |
 |---|---|
-| `export_library` | Export as BibTeX, Markdown reading list, or JSON. Filter by tags/categories. |
+| `export_library` | BibTeX, Markdown reading list, or JSON. Filter by tags/categories. |
 
 ## Configuration
 
-| Environment Variable | Default | Description |
+| Variable | Default | Description |
 |---|---|---|
-| `ARXIV_LIBRARY_PATH` | `~/.arxiv-library` | Root directory for all library data |
-| `S2_API_KEY` | *(none)* | Semantic Scholar API key for higher rate limits |
-| `ARXIV_EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Sentence-transformers model for embeddings |
+| `ARXIV_LIBRARY_PATH` | `~/.arxiv-library` | Where library data is stored |
+| `S2_API_KEY` | *(none)* | Semantic Scholar API key (optional, higher rate limits) |
+| `ARXIV_EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Embedding model (22MB, 384-dim) |
 | `ARXIV_DOWNLOAD_PDFS` | `true` | Auto-download PDFs on import |
 
-Library data stored at `~/.arxiv-library/`:
-```
-~/.arxiv-library/
-├── library.db       # SQLite (metadata, tags, notes, annotations)
-├── chroma/          # ChromaDB (semantic search embeddings)
-└── pdfs/            # Downloaded PDFs
-```
+## How It Works
 
-## Architecture
+**SQLite** stores paper metadata, authors, tags, notes, and annotations. **ChromaDB** stores embeddings for semantic search across three collections: title+abstract, fulltext chunks, and user notes. Both live locally at `~/.arxiv-library/`.
 
-**Dual storage**: SQLite for relational queries (filter, sort, join, paginate) + ChromaDB for semantic similarity search. Paper IDs (16-char hex) are the join key.
-
-**Embeddings**: `all-MiniLM-L6-v2` (22MB, 384-dim) via ChromaDB's built-in `SentenceTransformerEmbeddingFunction`. Three collections: paper titles+abstracts, fulltext chunks (~512 tokens), and user notes+annotations.
-
-**arXiv API**: 3-second rate limit enforced. PDF text extracted via PyMuPDF.
+Papers are embedded with `all-MiniLM-L6-v2` (runs locally, no API calls). Search, similarity, and clustering all use these embeddings. The arXiv API has a 3-second rate limit enforced automatically. PDFs are processed with PyMuPDF.
 
 ## Development
 
 ```bash
-# Run tests
-uv run pytest tests/ -v
-
-# Run a single test
-uv run pytest tests/test_sqlite_store.py::TestPaperCRUD::test_insert_and_get -v
-
-# Lint
-uv run ruff check src/ tests/
-
-# Test the MCP server starts
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | uv run python -m arxiv_library_mcp
+uv run pytest tests/ -v                    # Run all tests
+uv run pytest tests/test_identifiers.py -v  # Run one file
+uv run ruff check src/ tests/              # Lint
 ```
 
 ## License
